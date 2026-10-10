@@ -59,15 +59,41 @@ In OpenCode, dentro `~/re-lab`: «Che chiave accetta `/home/laco/re-lab/retrocal
 **Aggiornare:** cambiare `REA_VERSION` (o `GHIDRA_URL`) nel `Dockerfile`, rifare il punto 1 e ricopiare la skill.
 **Togliere:** `docker compose down --rmi all` (o `docker rmi ubuntu-ai/rea:6.3.0`) e la voce `rea` da `opencode.json`.
 
-### Come gira
+## Uso: non si avvia a mano
 
-Il server MCP **non è un servizio fisso**: OpenCode lancia `docker run -i --rm --init ...` a ogni sessione e parla col
-container su stdio; a fine sessione il container sparisce. Il container monta `~/re-lab` **allo stesso percorso**: i
-bersagli vanno messi lì e REA vuole percorsi **assoluti**. Gira come uid 1000, quindi i file che scrive nel progetto
-restano dell'utente.
+Una volta installato, REA **non si starta**: lo accende OpenCode.
 
-Le opzioni del filtro si passano al container aggiungendo `"-e", "REA_PROFILO=nativo"` (ecc.) al `command` di
-`opencode.json`, prima del nome dell'immagine.
+```
+# WSL Ai
+cp <binario> ~/re-lab/                   # REA vede solo questa cartella
+cd ~/re-lab && opencode
+```
+e si chiede, con il percorso assoluto: «Che chiave accetta `/home/laco/re-lab/retrocalc`? Usa REA.» Il modello carica la
+skill `rea` e lavora con `rea_describe` / `rea_call`.
+
+**Cosa succede sotto:**
+- all'avvio della sessione OpenCode legge `~/re-lab/opencode.json` e lancia da solo
+  `docker run -i --rm --init -v /home/laco/re-lab:/home/laco/re-lab -w /home/laco/re-lab ubuntu-ai/rea:6.3.0`;
+  parla col container su stdio (`rea mcp` dietro `filtro.mjs`);
+- il container **resta acceso per tutta la sessione**: bersaglio aperto e analisi Ghidra non si perdono fra una domanda e
+  l'altra;
+- chiuso OpenCode, il container **sparisce** (`--rm`): niente servizio fisso, niente porte, niente da spegnere.
+
+**Dove gira:** sul PC (LACO_WIN11), nel Docker Desktop, che è anche il Docker di WSL Ai. Il modello resta su ubuntu-ai
+(llama-swap :8080): da lì arrivano solo le risposte del modello, REA e Ghidra lavorano sul PC.
+
+**Condizioni:**
+- **Docker Desktop acceso**: se è spento OpenCode segna `rea` non connesso e il resto va lo stesso;
+- **OpenCode lanciato dentro `~/re-lab`**: REA è registrato solo nel progetto, non nella configurazione globale, quindi
+  dalle altre cartelle non c'è (voluto: i progetti di sviluppo non si portano dietro REA);
+- bersagli **dentro `~/re-lab`** e percorsi **assoluti**: il container monta solo quella cartella, allo stesso percorso;
+  gira come uid 1000, quindi i file che scrive nel progetto restano dell'utente.
+
+**Controllo:** `cd ~/re-lab && opencode mcp list` → `✓ rea connected`. La prima risposta può metterci qualche secondo
+(avvio del container): per questo `timeout` è 60 s.
+
+Le opzioni del filtro (tabella sotto) si passano al container aggiungendo `"-e", "REA_PROFILO=nativo"` (ecc.) al
+`command` di `opencode.json`, prima del nome dell'immagine.
 
 ## Il filtro (`filtro.mjs`): due strumenti + una skill
 
