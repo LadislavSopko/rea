@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "rea": {
+      "type": "local",
+      "command": [
+        "docker",
+        "run",
+        "-i",
+        "--rm",
+        "--init",
+        "-v",
+        "/home/laco/re-lab:/home/laco/re-lab",
+        "-w",
+        "/home/laco/re-lab",
+        "ubuntu-ai/rea:6.3.0"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    }
+  }
+}

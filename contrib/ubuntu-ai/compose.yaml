@@ -1,0 +1,9 @@
+# Progetto compose «ubuntu-ai». Solo per costruire l'immagine (da questa cartella):
+#   docker compose build
+#   docker compose run --rm rea rea doctor --json
+# Il server MCP non è un servizio fisso: lo lancia OpenCode a ogni sessione (vedi README.md).
+name: ubuntu-ai
+services:
+  rea:
+    build: .
+    image: ubuntu-ai/rea:6.3.0
