@@ -4,12 +4,13 @@ Ramo `main-laco` (predefinito) del fork personale `LadislavSopko/rea`: tutto que
 locale (OpenCode + llama-swap su ubuntu-ai) sta in questa cartella, compreso il compose; il codice di REA non è toccato.
 
 [REA](https://github.com/morluto/rea) (MIT): server MCP che dà a un agente gli strumenti del reverse engineering (Ghidra,
-.NET, Android, firmware, web). Qui: `rea-agents` 6.3.0 + Ghidra 12.1.4 + JDK 21 nell'immagine `ubuntu-ai/rea:6.3.0`
-(~2,7 GB su disco), niente installato fuori da Docker.
+.NET, Android, firmware, web). Qui: `rea-agents` 6.3.0 + Ghidra 12.1.4 + JDK 21 **con i motori opzionali già montati**
+(pwntools per l'ELF offline, unblob per l'estrazione firmware, Google Chrome per il web, jadx per Android) nell'immagine
+`ubuntu-ai/rea:6.3.0`, niente installato fuori da Docker. `.NET`, EVM e analisi JS/Electron girano già senza motore extra.
 
 | file | cosa |
 |------|------|
-| `Dockerfile` | Node 24 + `rea-agents` + Ghidra 12.1.4 (decompilatore nativo linux_x86_64) + JDK 21, utente 1000 |
+| `Dockerfile` | Node 24 + `rea-agents` + Ghidra 12.1.4 (decompilatore nativo linux_x86_64) + JDK 21 + motori opzionali (pwntools, unblob, Google Chrome, jadx), utente 1000 |
 | `compose.yaml` | progetto compose `ubuntu-ai`, servizio `rea`: solo per costruire e provare l'immagine |
 | `filtro.mjs` | sta davanti a `rea mcp`: il modello vede 2 strumenti invece di 139 (sotto) |
 | `skill/SKILL.md` | skill `rea` per OpenCode: regole, percorso tipico, i 139 nomi per gruppo |
@@ -20,14 +21,22 @@ locale (OpenCode + llama-swap su ubuntu-ai) sta in questa cartella, compreso il 
 
 Su una macchina con Docker e OpenCode (qui: WSL Ai, utente `laco`, uid 1000). Tutti i comandi in WSL.
 
-**1. Immagine.** Dal clone del fork in WSL (, niente copie su Windows):
+**1. Immagine.** Dal clone del fork in WSL (`gh repo clone LadislavSopko/rea ~/rea`, niente copie su Windows):
 ```
 cd ~/rea/contrib/ubuntu-ai
 docker compose build
 docker compose run --rm rea rea doctor --json       # tutte le voci ghidra-*: healthy
 ```
-`healthy: false` complessivo è normale: Hopper e IDA non ci sono (`missing_analysis_engine`) e `skill:identity` dà
-`config_drift` perché la skill di REA non si installa, si usa la nostra.
+`healthy: false` complessivo è normale: nel `providerInspections` Ghidra è `true` e IDA è assente
+(`missing_analysis_engine`, senza licenza), e `skill:identity` dà `config_drift` perché la skill di REA non si installa,
+si usa la nostra. I motori caller-supplied (pwntools, unblob, Chrome, jadx) **non** compaiono nel `doctor`: REA li
+verifica solo quando usi l'operazione. Provali così (dentro il container montato sul progetto):
+```
+docker run --rm --user 1000:1000 -v ~/re-lab:/home/laco/re-lab -w /home/laco/re-lab ubuntu-ai/rea:6.3.0 \
+  rea inspect-binary-layout /home/laco/re-lab/retrocalc --json   # pwntools: sezioni/mitigazioni ELF
+docker run --rm --user 1000:1000 -v ~/re-lab:/home/laco/re-lab -w /home/laco/re-lab ubuntu-ai/rea:6.3.0 \
+  rea extract-firmware /home/laco/re-lab/retrocalc /tmp/fwout --json   # unblob: report estrazione
+```
 
 Oppure senza clone, direttamente dal ramo:
 ```
@@ -95,6 +104,30 @@ skill `rea` e lavora con `rea_describe` / `rea_call`.
 Le opzioni del filtro (tabella sotto) si passano al container aggiungendo `"-e", "REA_PROFILO=nativo"` (ecc.) al
 `command` di `opencode.json`, prima del nome dell'immagine.
 
+## Profili e motori: cosa è attivo
+
+Nell'immagine sono montati (e verificati) questi motori, oltre a Ghidra. Con `rea_call` il gateway accetta **qualsiasi**
+strumento REA per nome (la lista mostrata al modello dipende dal profilo, ma la chiamata passa comunque al server), quindi bastano:
+
+| profilo / capacità | motore montato | strumenti |
+|---|---|---|
+| nativo (default) | Ghidra 12.1.4 | `open_binary`, `procedure_pseudo_code`, `trace_feature`, `analyze_function` … |
+| `.NET`, EVM, JS/Electron statico | nessuno (già attivo) | `inspect_managed_*`, `inspect_evm_interface`, `analyze_javascript_application` … |
+| ELF offline | **pwntools** 4.15 | `inspect_binary_layout`, `inspect_recorded_crash` |
+| estrazione firmware | **unblob** 26.6 | `extract_firmware` |
+| web | **Google Chrome** | `inspect_web_page`, `list_browser_targets`, `capture_browser_scenario`, `export_web_scripts` … |
+| Android | **jadx-headless-mcp** 0.7.1 | `search_android_classes`, `inspect_android_*`, `trace_android_references` |
+
+Per far **comparire** questi strumenti nella lista del modello, passa il profilo al container (variabili prima del nome
+immagine nel `command`): `-e REA_PROFILO=tutto` (139) oppure `-e REA_STRUMENTI=inspect_binary_layout,extract_firmware`.
+Senza di esse il default `porta` resta 2 strumenti, ma `rea_call` li invoca comunque.
+
+**Motori lasciati fuori, volutamente** (REA non installa motori per conto suo; sono solo configurazione): Hopper e IDA
+(licenza; REA usa Ghidra), **Binwalk** per `inspect_firmware_regions` (è un binario Rust, richiede rustc ≥ 1.77:
+compila `third_party/binwalk` e imposta `REA_BINWALK_COMMAND`), **Wakaru** (`recover_javascript_sources`),
+**ghidra-nativeaot**, **pwndbg/GDB**, IDA via `REA_IDA_MCP_CONFIG`. L'estrazione firmware (unblob) resta disponibile
+anche senza binwalk.
+
 ## Il filtro (`filtro.mjs`): due strumenti + una skill
 
 REA espone **139 strumenti**: descrizioni e schemi d'ingresso fanno ~606k caratteri (~150k token), che OpenCode manderebbe
@@ -104,8 +137,8 @@ a ogni richiesta. Il filtro sta davanti a `rea mcp` e nella modalità predefinit
 - `rea_call {"name": ..., "arguments": {...}}`: esegue lo strumento vero; la sessione (bersaglio aperto, analisi Ghidra)
   resta nel server fra una chiamata e l'altra.
 
-Il catalogo sta nella skill **`rea`** (`skill/SKILL.md`, 7 KB, caricata solo quando serve): regole (percorsi assoluti,
-solo Ghidra, cosa non è installato), il percorso tipico per un binario con gli argomenti esatti, i 139 nomi per gruppo.
+Il catalogo sta nella skill **`rea`** (`skill/SKILL.md`, ~7 KB, caricata solo quando serve): regole (percorsi assoluti,
+Ghidra + motori montati, cosa resta fuori), il percorso tipico per un binario con gli argomenti esatti, i 139 nomi per gruppo.
 
 Le risposte di `rea_call` si snelliscono: di un record di evidenza restano id, operazione, `normalized_result`,
 confidenza e limiti, e ogni limite solo la prima volta nella sessione (pseudocodice di una funzione: 3.200 → 1.140
