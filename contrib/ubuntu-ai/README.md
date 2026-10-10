@@ -24,8 +24,11 @@ Su una macchina con Docker e OpenCode (qui: WSL Ai, utente `laco`, uid 1000). Tu
 ```
 cd <clone>/contrib/ubuntu-ai
 docker compose build
-docker compose run --rm rea rea doctor --json       # Ghidra, JDK e decompilatore nativo: healthy (Hopper e IDA no)
+docker compose run --rm rea rea doctor --json       # tutte le voci ghidra-*: healthy
 ```
+`healthy: false` complessivo è normale: Hopper e IDA non ci sono (`missing_analysis_engine`) e `skill:identity` dà
+`config_drift` perché la skill di REA non si installa, si usa la nostra.
+
 Oppure senza clone, direttamente dal ramo:
 ```
 docker build -t ubuntu-ai/rea:6.3.0 https://github.com/LadislavSopko/rea.git#main-laco:contrib/ubuntu-ai
@@ -37,8 +40,9 @@ mkdir -p ~/re-lab/.opencode/skills && cd ~/re-lab && git init
 cp <clone>/contrib/ubuntu-ai/opencode.json .
 docker run --rm -v ~/re-lab/.opencode/skills:/out ubuntu-ai/rea:6.3.0 cp -r /opt/rea/skill /out/rea
 ```
-La skill si prende dall'immagine, così è sempre quella che va col filtro. In `opencode.json` il percorso montato è
-`/home/laco/re-lab`: per un altro utente o un'altra cartella cambiare le due occorrenze (montaggio e `-w`).
+La skill si prende dall'immagine, così è sempre quella che va col filtro. Il percorso del progetto è
+`/home/laco/re-lab`: per un altro utente o un'altra cartella cambiarlo in `opencode.json` (montaggio e `-w`) e negli
+esempi di `.opencode/skills/rea/SKILL.md`. Per un uid diverso da 1000 cambiare anche `USER` nel `Dockerfile`.
 
 **3. Verifica.**
 ```
