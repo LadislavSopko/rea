@@ -20,9 +20,9 @@ locale (OpenCode + llama-swap su ubuntu-ai) sta in questa cartella, compreso il 
 
 Su una macchina con Docker e OpenCode (qui: WSL Ai, utente `laco`, uid 1000). Tutti i comandi in WSL.
 
-**1. Immagine.** Dal clone del fork:
+**1. Immagine.** Dal clone del fork in WSL (, niente copie su Windows):
 ```
-cd <clone>/contrib/ubuntu-ai
+cd ~/rea/contrib/ubuntu-ai
 docker compose build
 docker compose run --rm rea rea doctor --json       # tutte le voci ghidra-*: healthy
 ```
@@ -37,7 +37,7 @@ docker build -t ubuntu-ai/rea:6.3.0 https://github.com/LadislavSopko/rea.git#mai
 **2. Progetto.** Una cartella dedicata, separata dai progetti di sviluppo (così i giri TDDAB non si portano dietro REA):
 ```
 mkdir -p ~/re-lab/.opencode/skills && cd ~/re-lab && git init
-cp <clone>/contrib/ubuntu-ai/opencode.json .
+cp ~/rea/contrib/ubuntu-ai/opencode.json .
 docker run --rm -v ~/re-lab/.opencode/skills:/out ubuntu-ai/rea:6.3.0 cp -r /opt/rea/skill /out/rea
 ```
 La skill si prende dall'immagine, così è sempre quella che va col filtro. Il percorso del progetto è
@@ -52,7 +52,7 @@ cd ~/re-lab && opencode mcp list                    # → ✓ rea connected
 
 **4. Bersaglio di prova.** Il sorgente resta fuori da `~/re-lab`, nel progetto va solo il binario senza simboli:
 ```
-gcc -O2 -s -o ~/re-lab/retrocalc <clone>/contrib/ubuntu-ai/retrocalc.c
+gcc -O2 -s -o ~/re-lab/retrocalc ~/rea/contrib/ubuntu-ai/retrocalc.c
 ```
 In OpenCode, dentro `~/re-lab`: «Che chiave accetta `/home/laco/re-lab/retrocalc`? Usa REA.»
 
