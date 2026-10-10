@@ -17,12 +17,14 @@ read the `result` part, the rest is provenance.
 - Paths are ABSOLUTE and must be inside the project folder (`/home/laco/re-lab/...`): REA runs in a container that only
   sees this folder.
 - One target at a time: `open_binary` switches target.
-- The deep engine here is **Ghidra 12.1.4** (headless). Extra engines already wired in the image: **pwntools**
-  (offline ELF layout/mitigations + recorded crashes), **unblob** (firmware extraction), **Google Chrome** (web),
-  **jadx-headless-mcp** (Android). .NET static, EVM and JS/Electron analysis need no engine. Still NOT installed:
-  Hopper and IDA (no license) — so Hopper-only tools (`current_address`, `current_procedure`, `current_document`,
-  `goto_address`, `next_address`, `prev_address`, bookmarks) do not work; also Binwalk (firmware *region inspection*,
-  a Rust build), Wakaru (JS source recovery), ghidra-nativeaot, pwndbg/LLDB.
+- The deep engine here is **Ghidra 12.1.4** (headless). Engines wired in the image: **pwntools** (offline ELF
+  layout/mitigations + recorded crashes), **unblob** + **Binwalk 3.1.0** (firmware extraction and region inspection),
+  **Google Chrome** (web), **jadx-headless-mcp** (Android), **Wakaru 1.13.0** (JS source recovery),
+  **ghidra-nativeaot** (.NET NativeAOT metadata), **GDB + pwndbg** (recorded-crash mapping), **esbuild** (web source
+  maps). .NET static, EVM and JS/Electron analysis need no engine. NOT installed: **Hopper/IDA** (license — so the
+  Hopper-only cursor/GUI tools `current_address`, `current_procedure`, `current_document`, `goto_address`,
+  `next_address`, `prev_address`, bookmarks do not work) and **ilspycmd** (optional .NET decompiler; managed analysis
+  works without it).
 - Addresses are hexadecimal strings as REA returns them (e.g. `"0x101169"`); procedures can be named by symbol or address.
 - Stripped binaries have no names: functions are `FUN_00101169`-style. Find the interesting one through STRINGS
   (messages like "invalid", "license", "password") and their cross-references, not by reading every function.
@@ -85,17 +87,20 @@ list_unknowns · record_unknown · update_unknown · verify_unknown_resolution �
 build_reconstruction_obligation_ledger · evaluate_reconstruction_coverage.
 
 **Available with the engines wired in this image:** offline ELF (`inspect_binary_layout`, `inspect_recorded_crash` -
-pwntools), firmware extraction (`extract_firmware` - unblob), web/Electron (`list_browser_targets`, `inspect_web_page`,
-`analyze_web_bundle`, `observe_web_*`, `capture_browser_scenario`, `trace_web_*`, `export_web_scripts`, `compare_web_*`,
-`*_electron_*` - Chrome), Android (`search_android_classes`, `inspect_android_*`, `trace_android_references`,
-`project_android_application_graph` - jadx), plus .NET (`inspect_managed_*`, `compare_managed_members`,
-`verify_managed_native_boundaries`, `import_managed_reconstruction`), EVM (`inspect_evm_interface`) and static
-JS/ASAR (`analyze_javascript_application`, `trace_application_feature`, `compare_application_versions`,
-`compare_source_to_bundle`, `reconcile_javascript_runtime`) which need no engine.
+pwntools), firmware (`inspect_firmware_regions` - Binwalk 3.1.0, `extract_firmware` - unblob), web/Electron
+(`list_browser_targets`, `inspect_web_page`, `analyze_web_bundle`, `observe_web_*`, `capture_browser_scenario`,
+`trace_web_*`, `export_web_scripts`, `compare_web_*`, `*_electron_*` - Chrome), Android (`search_android_classes`,
+`inspect_android_*`, `trace_android_references`, `project_android_application_graph` - jadx), JavaScript source recovery
+(`recover_javascript_sources` - Wakaru 1.13.0), .NET NativeAOT metadata (`inspect_native_load_image`,
+`inspect_native_data_type` - ghidra-nativeaot), recorded-crash mapping (`inspect_recorded_crash --debugger-context` -
+GDB + pwndbg), plus .NET (`inspect_managed_*`, `compare_managed_members`, `verify_managed_native_boundaries`,
+`import_managed_reconstruction`), EVM (`inspect_evm_interface`) and static JS/ASAR (`analyze_javascript_application`,
+`trace_application_feature`, `compare_application_versions`, `compare_source_to_bundle`, `reconcile_javascript_runtime`)
+which need no engine.
 
 **Not available in this setup:** Hopper/IDA (native analysis uses only Ghidra, so the Hopper-only cursor/GUI tools do
-not work); firmware *region inspection* `inspect_firmware_regions` (needs a Rust Binwalk 3.1.x - build it and set
-`REA_BINWALK_COMMAND`); JavaScript source recovery `recover_javascript_sources` (needs Wakaru); the JavaScript
-*runtime* observers (`list_javascript_runtime_targets`, `observe_javascript_runtime`); the Apple/macOS-only UI observers
-(`trace_native_ui_action`, `observe_native_ui`, `capture_native_ui_scenario`, `observe_native_calls`); pwndbg/GDB
-runtime mapping. Enabling an optional engine is only configuration (see README): REA never installs engines itself.
+not work); the optional .NET decompiler via `ilspycmd` (its dotnet tool-host needs .NET 6/9, not installed - managed
+analysis works without it); the JavaScript *runtime* observers (`list_javascript_runtime_targets`,
+`observe_javascript_runtime`); the Apple/macOS-only UI observers (`trace_native_ui_action`, `observe_native_ui`,
+`capture_native_ui_scenario`, `observe_native_calls`). REA never installs engines itself; anything still missing is only
+configuration.

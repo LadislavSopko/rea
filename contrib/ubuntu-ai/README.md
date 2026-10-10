@@ -4,13 +4,14 @@ Ramo `main-laco` (predefinito) del fork personale `LadislavSopko/rea`: tutto que
 locale (OpenCode + llama-swap su ubuntu-ai) sta in questa cartella, compreso il compose; il codice di REA non è toccato.
 
 [REA](https://github.com/morluto/rea) (MIT): server MCP che dà a un agente gli strumenti del reverse engineering (Ghidra,
-.NET, Android, firmware, web). Qui: `rea-agents` 6.3.0 + Ghidra 12.1.4 + JDK 21 **con i motori opzionali già montati**
-(pwntools per l'ELF offline, unblob per l'estrazione firmware, Google Chrome per il web, jadx per Android) nell'immagine
-`ubuntu-ai/rea:6.3.0`, niente installato fuori da Docker. `.NET`, EVM e analisi JS/Electron girano già senza motore extra.
+.NET, Android, firmware, web). Qui: `rea-agents` 6.3.0 + Ghidra 12.1.4 + JDK 21 **con tutti i motori montabili già**
+dentro l'immagine: pwntools (ELF offline), Binwalk + unblob (firmware), Google Chrome + esbuild (web), jadx (Android),
+Wakaru (recovery JS), ghidra-nativeaot (metadati .NET), GDB + pwndbg (crash). .NET statico, EVM e JS/Electron girano
+già senza motore extra. Fuori solo Hopper/IDA (licenza) e ilspycmd (vedi "Profili e motori"), niente installato fuori da Docker.
 
 | file | cosa |
 |------|------|
-| `Dockerfile` | Node 24 + `rea-agents` + Ghidra 12.1.4 (decompilatore nativo linux_x86_64) + JDK 21 + motori opzionali (pwntools, unblob, Google Chrome, jadx), utente 1000 |
+| `Dockerfile` | Node 24 + `rea-agents` + Ghidra 12.1.4 + JDK 21 + motori (pwntools, Binwalk, unblob, Chrome, esbuild, jadx, Wakaru, ghidra-nativeaot, GDB/pwndbg), utente 1000 |
 | `compose.yaml` | progetto compose `ubuntu-ai`, servizio `rea`: solo per costruire e provare l'immagine |
 | `filtro.mjs` | sta davanti a `rea mcp`: il modello vede 2 strumenti invece di 139 (sotto) |
 | `skill/SKILL.md` | skill `rea` per OpenCode: regole, percorso tipico, i 139 nomi per gruppo |
@@ -114,19 +115,22 @@ strumento REA per nome (la lista mostrata al modello dipende dal profilo, ma la 
 | nativo (default) | Ghidra 12.1.4 | `open_binary`, `procedure_pseudo_code`, `trace_feature`, `analyze_function` … |
 | `.NET`, EVM, JS/Electron statico | nessuno (già attivo) | `inspect_managed_*`, `inspect_evm_interface`, `analyze_javascript_application` … |
 | ELF offline | **pwntools** 4.15 | `inspect_binary_layout`, `inspect_recorded_crash` |
-| estrazione firmware | **unblob** 26.6 | `extract_firmware` |
-| web | **Google Chrome** | `inspect_web_page`, `list_browser_targets`, `capture_browser_scenario`, `export_web_scripts` … |
+| ELF offline / crash | **pwntools** 4.15 | `inspect_binary_layout`, `inspect_recorded_crash` |
+| firmware | **Binwalk** 3.1.0 + **unblob** 26.6 | `inspect_firmware_regions`, `extract_firmware` |
+| web | **Google Chrome** + **esbuild** | `inspect_web_page`, `list_browser_targets`, `capture_browser_scenario`, `export_web_scripts` … |
 | Android | **jadx-headless-mcp** 0.7.1 | `search_android_classes`, `inspect_android_*`, `trace_android_references` |
+| recovery JS | **Wakaru** 1.13.0 (binario Rust) | `recover_javascript_sources` |
+| metadati .NET NativeAOT | **ghidra-nativeaot** | `inspect_native_load_image`, `inspect_native_data_type` |
+| crash con debugger | **GDB + pwndbg** | `inspect_recorded_crash --debugger-context` |
 
 Per far **comparire** questi strumenti nella lista del modello, passa il profilo al container (variabili prima del nome
 immagine nel `command`): `-e REA_PROFILO=tutto` (139) oppure `-e REA_STRUMENTI=inspect_binary_layout,extract_firmware`.
 Senza di esse il default `porta` resta 2 strumenti, ma `rea_call` li invoca comunque.
 
-**Motori lasciati fuori, volutamente** (REA non installa motori per conto suo; sono solo configurazione): Hopper e IDA
-(licenza; REA usa Ghidra), **Binwalk** per `inspect_firmware_regions` (è un binario Rust, richiede rustc ≥ 1.77:
-compila `third_party/binwalk` e imposta `REA_BINWALK_COMMAND`), **Wakaru** (`recover_javascript_sources`),
-**ghidra-nativeaot**, **pwndbg/GDB**, IDA via `REA_IDA_MCP_CONFIG`. L'estrazione firmware (unblob) resta disponibile
-anche senza binwalk.
+**Motori NON montati (e perché):** Hopper e IDA (a licenza; REA usa Ghidra) e **ilspycmd** (decompilatore .NET: le sue
+build da `dotnet tool` chiedono un tool-host .NET 6/9 non risolvibile con gli SDK disponibili; l'analisi .NET di REA
+gira comunque senza). Tutti gli altri (compresi i Rust Binwalk/Wakaru, nativeaot e pwndbg) sono montati. Se un giorno
+vuoi IDA: fornisci l'installazione con licenza e imposta `REA_IDA_MCP_CONFIG` + `REA_ANALYSIS_PROVIDER=ida`.
 
 ## Il filtro (`filtro.mjs`): due strumenti + una skill
 
