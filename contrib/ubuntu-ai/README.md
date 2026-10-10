@@ -1,9 +1,9 @@
 # REA in Docker per OpenCode e modelli locali (10/10/2026)
 
-Ramo `ubuntu-ai` del fork personale `LadislavSopko/rea`: tutto quello che serve per usare REA con un modello locale
+Ramo `main-laco` (predefinito) del fork personale `LadislavSopko/rea`: tutto quello che serve per usare REA con un modello locale
 (OpenCode + llama-swap su ubuntu-ai) sta in questa cartella; il codice di REA non è toccato. Il progetto che lo usa
 (`ubuntu-ai/docker/rea`) costruisce l'immagine da qui:
-`docker build -t ubuntu-ai/rea:6.3.0 https://github.com/LadislavSopko/rea.git#ubuntu-ai:contrib/ubuntu-ai`.
+`docker build -t ubuntu-ai/rea:6.3.0 https://github.com/LadislavSopko/rea.git#main-laco:contrib/ubuntu-ai`.
 
 [REA](https://github.com/morluto/rea) (MIT): server MCP che dà a un agente gli strumenti del reverse engineering (Ghidra,
 .NET, Android, firmware, web). Qui: `rea-agents` 6.3.0 + Ghidra 12.1.4 + JDK 21 nell'immagine `ubuntu-ai/rea:6.3.0`,
